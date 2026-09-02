@@ -1,0 +1,9 @@
+{
+  "name": "Workout Tracker",
+  "short_name": "Workout",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#8b5cf6",
+  "description": "Personal workout and PR tracker"
+}

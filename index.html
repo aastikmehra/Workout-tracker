@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workout Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8b5cf6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#0b0d12;--card:#141821;--card2:#1a1f2a;--text:#f5f7fb;--muted:#9299a8;--accent:#8b5cf6;--green:#22c55e;--red:#ef4444;--line:#272d39}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+.container{max-width:1100px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}.brand h1{margin:0;font-size:28px}.brand p{margin:5px 0;color:var(--muted)}
+button{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--accent);color:white}.ghost{background:var(--card2);border:1px solid var(--line)}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:22px}.tab{background:var(--card);color:var(--muted)}.tab.active{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}.stat .label{color:var(--muted);font-size:13px}.stat .value{font-size:26px;font-weight:800;margin-top:7px}.up{color:var(--green)}.down{color:var(--red)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px}.panel h2{margin:0 0 14px;font-size:18px}
+.compare{width:100%;border-collapse:collapse}.compare th,.compare td{text-align:left;padding:12px 8px;border-bottom:1px solid var(--line);font-size:14px}.compare th{color:var(--muted);font-weight:600}
+.daycards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.day{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}.day h3{margin:0 0 5px}.day small{color:var(--muted)}.day ul{padding-left:20px;color:#d6dae3;line-height:1.8}
+.exercise{display:grid;grid-template-columns:1.5fr 90px 90px 110px 100px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.exercise:last-child{border-bottom:0}.exercise input,.logbox input,.logbox select{width:100%;background:#0e1117;border:1px solid var(--line);color:white;border-radius:8px;padding:9px}
+.section-title{margin:24px 0 8px;color:#cdd2dc;font-size:14px;text-transform:uppercase;letter-spacing:.08em}
+.badge{font-size:12px;padding:5px 8px;border-radius:999px;background:var(--card2);color:var(--muted)}
+.logbox{display:grid;grid-template-columns:1fr 150px;gap:8px;margin-bottom:10px}
+.note{color:var(--muted);font-size:13px}.leg-toggle{display:inline-flex;align-items:center;gap:9px;margin:-4px 0 14px;color:#d6dae3;font-size:14px}.leg-toggle input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}.hidden{display:none}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.daycards{grid-template-columns:1fr}.exercise{grid-template-columns:1fr 80px 80px}.exercise .prev,.exercise .change{display:none}.logbox{grid-template-columns:1fr 90px 90px}.logbox button{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top">
+    <div class="brand"><h1>💪 Workout Tracker</h1><p>3 days training → 1 day rest → repeat.</p></div>
+    <div><span class="badge" id="cycleStatus">Cycle: Day 1</span> <button class="ghost" onclick="resetData()">Reset data</button></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="show('dashboard',this)">Dashboard</button>
+    <button class="tab" onclick="show('log',this)">Log Workout</button>
+    <button class="tab" onclick="show('routine',this)">Routine</button>
+  </div>
+
+  <section id="dashboard">
+    <div class="grid">
+      <div class="stat"><div class="label">Current cycle</div><div class="value" id="cycleDay">Day 1</div></div>
+      <div class="stat"><div class="label">Last cycle volume</div><div class="value" id="volume">0 kg</div></div>
+      <div class="stat"><div class="label">vs last cycle</div><div class="value" id="volumeChange">—</div></div>
+      <div class="stat"><div class="label">New PRs</div><div class="value" id="prs">0 🏆</div></div>
+    </div>
+    <div class="panel">
+      <h2>Exercise progress</h2>
+      <div id="comparison"></div>
+      <p class="note">PRs are based on your heaviest logged weight for each exercise. Reps are saved for context.</p>
+    </div>
+  </section>
+
+  <section id="log" class="hidden">
+    <div class="panel">
+      <h2>Log today's workout</h2><label class="leg-toggle"><input id="legsToggle" type="checkbox" onchange="toggleLegs()"> Include legs on Day 3</label>
+      <div class="logbox">
+        <select id="daySelect" onchange="renderLog()"><option value="1">Day 1 — Chest + Triceps + Forearms</option><option value="2">Day 2 — Back + Biceps</option><option value="3">Day 3 — Shoulders + Legs</option></select>
+        <button onclick="saveWorkout()">Save workout</button>
+      </div>
+      <p class="note">Choose whichever day you actually trained. Your 3-on / 1-off rotation does not force today's day.</p>
+      <div id="logExercises"></div>
+    </div>
+  </section>
+
+  <section id="routine" class="hidden">
+    <div class="daycards" id="routineCards"></div>
+  </section>
+</div>
+
+<script>
+const routine={
+1:{name:"Chest + Triceps + Forearms",groups:[
+["Chest",["Incline Chest Press","Flat Chest Press","Lower Chest Cable Fly"]],
+["Triceps",["Tricep Pushdown","Tricep Extensions","Reverse-Grip Pushdown"]],
+["Forearms",["Upper Wrist Curl","Reverse Wrist Curl","Wrist Twists","Wrist Up/Down"]]]},
+2:{name:"Back + Biceps",groups:[
+["Back",["Lat Pulldown","Cable Rows","Machine Rows"]],
+["Biceps",["Incline Bicep Curl","Bar Curl","Hammer Curls"]]]},
+3:{name:"Shoulders + Legs",groups:[
+["Shoulders",["Shoulder Press","Lateral Raises","Face Pull","Front Raise"]],
+["Legs",["Leg Curls","Weighted Squats","Machine 1","Machine 2"]]]}
+};
+let data=[];
+try { data=JSON.parse(localStorage.getItem("workoutTracker")||"[]"); if(!Array.isArray(data)) data=[]; } catch(e){ data=[]; }
+function save(){
+  try { localStorage.setItem("workoutTracker", JSON.stringify(data)); }
+  catch(e){ alert("Your browser blocked storage. Please open this file in Chrome and allow site storage."); }
+}
+let currentDay=1;
+let includeLegs=localStorage.getItem("includeLegs") !== "false";
+
+function allExercises(){return Object.values(routine).flatMap(d=>d.groups.flatMap(g=>g[0]==="Legs" && !includeLegs ? [] : g[1]));}
+function cycleIndex(date=new Date()){
+ const base=new Date("2026-08-31T00:00:00");
+ const d=new Date(date); d.setHours(0,0,0,0);
+ return Math.floor((d-base)/86400000);
+}
+function cycleNumber(date=new Date()){return Math.floor(cycleIndex(date)/4);}
+function rotationDay(date=new Date()){
+ const n=((cycleIndex(date)%4)+4)%4;
+ return n;
+}
+function cycleLabel(){const n=rotationDay();return n===3?"REST":"DAY "+(n+1);}
+function currentCycleEntries(){return data.filter(x=>x.cycle===cycleNumber());}
+function previousCycleEntries(){return data.filter(x=>x.cycle===cycleNumber()-1);}
+function renderDashboard(){
+ const cur=currentCycleEntries(), prev=previousCycleEntries();
+ const vol=a=>a.reduce((s,x)=>s+x.weight*x.reps,0);
+ const cv=vol(cur), pv=vol(prev);
+ document.getElementById("cycleDay").textContent=cycleLabel();
+ document.getElementById("cycleStatus").textContent="Cycle: "+cycleLabel();
+ document.getElementById("volume").textContent=Math.round(pv).toLocaleString()+" kg";
+ const ch=pv?((cv-pv)/pv*100):null;
+ document.getElementById("volumeChange").textContent=ch===null?"—":(ch>=0?"+":"")+ch.toFixed(1)+"%";
+ document.getElementById("volumeChange").className="value "+(ch>=0?"up":"down");
+ let prs=0; const rows=[];
+ allExercises().forEach(ex=>{
+   const c=cur.filter(x=>x.exercise===ex), p=prev.filter(x=>x.exercise===ex);
+   if(!c.length&&!p.length)return;
+   const maxC=c.length?Math.max(...c.map(x=>x.weight)):0,maxP=p.length?Math.max(...p.map(x=>x.weight)):0;
+   const delta=maxC-maxP;
+   if(c.length && maxC>maxP && maxP>0)prs++;
+   rows.push(`<tr><td>${ex}</td><td>${maxP?maxP+" kg":"—"}</td><td>${maxC?maxC+" kg":"—"}</td><td class="${delta>0?'up':delta<0?'down':''}">${maxC?((delta>0?"+":"")+delta+" kg"):"—"}</td></tr>`);
+ });
+ document.getElementById("prs").textContent=prs+" 🏆";
+ document.getElementById("comparison").innerHTML=rows.length?`<table class="compare"><tr><th>Exercise</th><th>Previous cycle</th><th>Current cycle</th><th>Change</th></tr>${rows.join("")}</table>`:"<p class='note'>Log your first workout to start seeing comparisons.</p>";
+}
+function show(id,btn){document.querySelectorAll("section").forEach(x=>x.classList.add("hidden"));document.getElementById(id).classList.remove("hidden");document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));if(btn)btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="log")renderLog();}
+
+function toggleLegs(){
+ includeLegs=document.getElementById("legsToggle").checked;
+ localStorage.setItem("includeLegs", includeLegs);
+ renderLog(); renderRoutine(); renderDashboard();
+}
+function activeGroups(day){
+ return routine[day].groups.filter(g=>g[0]!=="Legs" || includeLegs);
+}
+function renderLog(){
+ const day=+document.getElementById("daySelect").value;
+ const d=routine[day];
+ const groups=activeGroups(day);
+ const previous=previousCycleEntries();
+ document.getElementById("logExercises").innerHTML=groups.map(g=>
+   `<div class="section-title">${g[0]}</div>`+
+   g[1].map(ex=>{
+     const prev=previous.filter(x=>x.exercise===ex);
+     const last=prev.length?prev[prev.length-1]:null;
+     return `<div class="exercise">
+       <strong>${ex}</strong>
+       <input id="r-${CSS.escape(ex)}" type="number" min="1" value="8" placeholder="Reps">
+       <input id="w-${CSS.escape(ex)}" type="number" step="0.5" min="0" placeholder="Weight kg">
+       <span class="badge prev">${last?`Last: ${last.weight}kg × ${last.reps}`:"No previous"}</span>
+     </div>`;
+   }).join("")
+ ).join("");
+}
+function lastWeight(ex){
+ const arr=data.filter(x=>x.exercise===ex).sort((a,b)=>b.date.localeCompare(a.date));
+ return arr.length?arr[0].weight:"—";
+}
+function saveWorkout(){
+ const day=+document.getElementById("daySelect").value;
+ const d=routine[day];
+ let count=0;
+ activeGroups(day).flatMap(g=>g[1]).forEach(ex=>{
+   const weight=+document.getElementById("w-"+CSS.escape(ex)).value;
+   const exerciseReps=+document.getElementById("r-"+CSS.escape(ex)).value;
+   if(weight>0 && exerciseReps>0){data.push({date:new Date().toISOString().slice(0,10),cycle:cycleNumber(),day,exercise:ex,reps:exerciseReps,weight});count++;}
+ });
+ save(); alert(count?`Saved ${count} exercises 💪`:"Enter at least one weight."); renderLog(); renderDashboard();
+}
+function renderRoutine(){
+ document.getElementById("routineCards").innerHTML=Object.values(routine).map((d,i)=>`<div class="day"><h3>Day ${i+1}</h3><small>${d.name}</small>${activeGroups(i+1).map(g=>`<p><b>${g[0]}</b></p><ul>${g[1].map(x=>`<li>${x}</li>`).join("")}</ul>`).join("")}</div>`).join("");
+}
+function resetData(){if(confirm("Delete all logged workouts?")){data=[];save();renderDashboard();renderLog();}}
+document.getElementById("legsToggle").checked=includeLegs; renderRoutine();renderDashboard();renderLog();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body>
+</html>
